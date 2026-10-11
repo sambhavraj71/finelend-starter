@@ -2,16 +2,15 @@
 package com.finlend.config;
 
 import com.finlend.security.JwtAuthenticationFilter;
-
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,149 +22,167 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+                return new BCryptPasswordEncoder();
+        }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            JwtAuthenticationFilter jwtFilter) throws Exception {
+        @Bean
+        public CorsConfigurationSource corsConfigurationSource() {
 
-        http
-                .csrf(csrf -> csrf.disable())
+                CorsConfiguration config = new CorsConfiguration();
 
-                .sessionManagement(session -> session.sessionCreationPolicy(
-                        SessionCreationPolicy.STATELESS))
+                config.setAllowedOrigins(List.of(
+                                "http://localhost:5173",
+                                "https://finelend-starter.vercel.app"));
 
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
+                config.setAllowedMethods(List.of(
+                                "GET",
+                                "POST",
+                                "PUT",
+                                "PATCH",
+                                "DELETE",
+                                "OPTIONS"));
 
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(
-                                new HttpStatusEntryPoint(
-                                        HttpStatus.UNAUTHORIZED))
-                        .accessDeniedHandler(
-                                (request, response, exception) -> response.setStatus(
-                                        HttpServletResponse.SC_FORBIDDEN)))
+                config.setAllowedHeaders(List.of(
+                                "Authorization",
+                                "Content-Type",
+                                "Accept"));
 
-                .authorizeHttpRequests(auth -> auth
+                config.setAllowCredentials(false);
 
-                        // Internal error dispatch
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 
-                        .dispatcherTypeMatchers(
-                                DispatcherType.ERROR)
-                        .permitAll()
+                source.registerCorsConfiguration("/**", config);
 
-                        // Public authentication APIs
+                return source;
+        }
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/register",
-                                "/api/auth/login")
-                        .permitAll()
+        @Bean
+        public SecurityFilterChain securityFilterChain(
+                        HttpSecurity http,
+                        JwtAuthenticationFilter jwtFilter) throws Exception {
 
-                        // Public health endpoint
+                http
+                                .cors(Customizer.withDefaults())
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/health")
-                        .permitAll()
+                                .csrf(csrf -> csrf.disable())
 
-                        // Swagger documentation
+                                .sessionManagement(session -> session.sessionCreationPolicy(
+                                                SessionCreationPolicy.STATELESS))
 
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/v3/api-docs/**",
-                                "/v3/api-docs.yaml")
-                        .permitAll()
+                                .formLogin(form -> form.disable())
+                                .httpBasic(basic -> basic.disable())
 
-                        // Public active loan products
+                                .exceptionHandling(ex -> ex
+                                                .authenticationEntryPoint(
+                                                                new HttpStatusEntryPoint(
+                                                                                HttpStatus.UNAUTHORIZED))
+                                                .accessDeniedHandler(
+                                                                (request, response, exception) -> response.setStatus(
+                                                                                HttpServletResponse.SC_FORBIDDEN)))
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/loan-products",
-                                "/api/loan-products/{id}")
-                        .permitAll()
+                                .authorizeHttpRequests(auth -> auth
 
-                        // Admin-only loan product management
+                                                .dispatcherTypeMatchers(
+                                                                DispatcherType.ERROR)
+                                                .permitAll()
 
-                        .requestMatchers(
-                                "/api/loan-products/admin/**")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.OPTIONS,
+                                                                "/**")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/loan-products")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/auth/register",
+                                                                "/api/auth/login")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.PUT,
-                                "/api/loan-products/{id}")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/health")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.PATCH,
-                                "/api/loan-products/{id}/status")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                "/swagger-ui/**",
+                                                                "/swagger-ui.html",
+                                                                "/v3/api-docs/**",
+                                                                "/v3/api-docs.yaml")
+                                                .permitAll()
 
-                        // Admin loan application listing
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/loan-products",
+                                                                "/api/loan-products/{id}")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                "/api/loan-applications/admin/**")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                "/api/loan-products/admin/**")
+                                                .hasRole("ADMIN")
 
-                        // Customer loan applications
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/loan-products")
+                                                .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/loan-applications")
-                        .hasRole("CUSTOMER")
+                                                .requestMatchers(
+                                                                HttpMethod.PUT,
+                                                                "/api/loan-products/{id}")
+                                                .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/loan-applications/my",
-                                "/api/loan-applications/{id}")
-                        .hasRole("CUSTOMER")
+                                                .requestMatchers(
+                                                                HttpMethod.PATCH,
+                                                                "/api/loan-products/{id}/status")
+                                                .hasRole("ADMIN")
 
-                        // Customer loan account APIs
+                                                .requestMatchers(
+                                                                "/api/loan-applications/admin/**")
+                                                .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/loan-accounts/my",
-                                "/api/loan-accounts/{id}",
-                                "/api/loan-accounts/{id}/schedule",
-                                "/api/loan-accounts/{id}/repayments")
-                        .hasRole("CUSTOMER")
+                                                .requestMatchers(
+                                                                HttpMethod.POST,
+                                                                "/api/loan-applications")
+                                                .hasRole("CUSTOMER")
 
-                        // Customer dashboard
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/loan-applications/my",
+                                                                "/api/loan-applications/{id}")
+                                                .hasRole("CUSTOMER")
 
-                        .requestMatchers(
-                                "/api/customer/**")
-                        .hasRole("CUSTOMER")
+                                                .requestMatchers(
+                                                                HttpMethod.GET,
+                                                                "/api/loan-accounts/my",
+                                                                "/api/loan-accounts/{id}",
+                                                                "/api/loan-accounts/{id}/schedule",
+                                                                "/api/loan-accounts/{id}/repayments")
+                                                .hasRole("CUSTOMER")
 
-                        // Admin operations:
-                        // approvals, disbursements, repayments,
-                        // EMI schedules, dashboards and reports
+                                                .requestMatchers(
+                                                                "/api/customer/**")
+                                                .hasRole("CUSTOMER")
 
-                        .requestMatchers(
-                                "/api/admin/**")
-                        .hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                "/api/admin/**")
+                                                .hasRole("ADMIN")
 
-                        // Deny all unspecified endpoints
+                                                .anyRequest().denyAll())
 
-                        .anyRequest().denyAll())
+                                .addFilterBefore(
+                                                jwtFilter,
+                                                UsernamePasswordAuthenticationFilter.class);
 
-                .addFilterBefore(
-                        jwtFilter,
-                        UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
-    }
+                return http.build();
+        }
 }
